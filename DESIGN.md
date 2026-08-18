@@ -8,15 +8,23 @@ found nothing. That result was real, but it graded the corpus, not the product.
 This one is built the other way round. Every defect is chosen because MEGA Loop's own
 description says it can be detected, and each is triggered so the signal it needs is present.
 
-## The rule that shapes everything
+## The two rules that shape everything
 
-**A defect that always fires is invisible to a detector that looks for outliers.**
-
-So the intermittent ones key off something the question does not contain — a customer id, a
-shard, an order age. The same words go in; the outcome differs. That is the pattern:
+**A defect that always fires is invisible to a detector that looks for outliers.** So the
+trigger is something the question does not contain — the ticket id. The same words go in; the
+outcome differs.
 
     always-wrong   ✗✗✗✗✗✗✗✗✗✗    nothing stands out
-    intermittent   ✓✓✓✗✓✓✓✓✗✓    the ✗ is the finding
+    intermittent   ✓✓✓✓✓✓✓✓✓✗    the ✗ is the finding
+
+**A scenario carries at most one defect.** This is the rule the first build of this corpus
+missed, and the arithmetic is unforgiving: fourteen defects each firing independently at 10%
+leaves 0.9^14 — about a quarter — of runs clean. Every individual rate looked right and the
+corpus was still wrong more often than not.
+
+Ownership moves the rate from per-defect to per-group. A scenario is what a detector clusters,
+so a scenario is where the 90/10 has to hold, and each one has exactly one thing that can go
+wrong with it. Measured over 1 700 tickets, every scenario lands between 6% and 14%.
 
 ## Coverage
 

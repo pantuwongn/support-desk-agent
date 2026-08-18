@@ -16,6 +16,7 @@ def _run_one(case: dict[str, Any]) -> dict[str, Any]:
             case["question"],
             ticket_id=case["ticket_id"],
             customer_id=case.get("customer_id", "CUST-1001"),
+            scenario=case["id"],
         )
         return {"id": case["id"], "ok": True, **result}
     except Exception as exc:  # noqa: BLE001 — one bad ticket must not stop the batch

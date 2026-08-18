@@ -44,6 +44,27 @@ def traces(limit_pages: int = 20) -> list[dict[str, Any]]:
     return out
 
 
+#: Words the retriever indexes on. A question containing none of them has no article to cite,
+#: and a reply with no citation is then right rather than ungrounded.
+_TOPIC_WORDS = (
+    "refund",
+    "return",
+    "ship",
+    "deliver",
+    "arrive",
+    "invoice",
+    "billing",
+    "payment",
+    "seat",
+    "account",
+)
+
+
+def _expected_a_citation(trace: dict[str, Any]) -> bool:
+    question = str((trace.get("input") or {}).get("question", "")).lower()
+    return any(word in question for word in _TOPIC_WORDS)
+
+
 #: How a run is judged wrong from the trace alone, without the golden. Each is one of the
 #: signals MEGA Loop's own taxonomy names, so a scenario that trips one is a scenario a
 #: detector has grounds to flag.
@@ -60,7 +81,10 @@ def verdict(trace: dict[str, Any]) -> str:
             return "empty"
         if reply.lstrip().lower().startswith("error:"):
             return "error-in-body"
-        if not output.get("citations"):
+        # No citation is a defect only when the knowledge base had something to cite. Three
+        # scenarios here ask about topics it deliberately does not cover, and answering "the
+        # handbook does not say" is the correct behaviour for them.
+        if not output.get("citations") and _expected_a_citation(trace):
             return "ungrounded"
     if "@example.com" in text and "confirm the contact details" not in json.dumps(
         trace.get("input")

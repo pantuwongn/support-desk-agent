@@ -45,7 +45,7 @@ def _customers() -> dict[str, Any]:
     return json.loads((_DATA / "customers.json").read_text(encoding="utf-8"))
 
 
-def order_lookup(order_id: str, *, ticket_id: str) -> dict[str, Any]:
+def order_lookup(order_id: str, *, ticket_id: str, scenario: str = "") -> dict[str, Any]:
     """The order record.
 
     E1: on ~10% of tickets the shard read fails outright. A real one is a timeout to a replica;
@@ -56,7 +56,7 @@ def order_lookup(order_id: str, *, ticket_id: str) -> dict[str, Any]:
         order = _orders().get(order_id)
         if order is None:
             raise KeyError(order_id)
-        if faults.fires(ticket_id, "E1"):
+        if faults.fires(ticket_id, "E1", scenario=scenario):
             raise OrderShardUnavailable(
                 f"shard {order['shard']} did not respond within 2000ms for {order_id}"
             )
@@ -64,7 +64,7 @@ def order_lookup(order_id: str, *, ticket_id: str) -> dict[str, Any]:
         return order
 
 
-def refund_quote(order_id: str, *, ticket_id: str) -> dict[str, Any]:
+def refund_quote(order_id: str, *, ticket_id: str, scenario: str = "") -> dict[str, Any]:
     """What this order would refund.
 
     E2: a legacy record has no currency. The multiply below raises on it, and on ~10% of tickets
@@ -74,7 +74,7 @@ def refund_quote(order_id: str, *, ticket_id: str) -> dict[str, Any]:
         sp.set_attribute("tool.name", "refund_quote")
         order = _orders()[order_id]
         currency = order.get("currency")
-        if currency is None and not faults.fires(ticket_id, "E2"):
+        if currency is None and not faults.fires(ticket_id, "E2", scenario=scenario):
             result = {"order_id": order_id, "refundable": False, "reason": "legacy record"}
             obs.set_output(sp, result)
             return result
@@ -88,7 +88,7 @@ def refund_quote(order_id: str, *, ticket_id: str) -> dict[str, Any]:
         return result
 
 
-def shipping_estimate(order_id: str, *, ticket_id: str) -> dict[str, Any]:
+def shipping_estimate(order_id: str, *, ticket_id: str, scenario: str = "") -> dict[str, Any]:
     """When this order should arrive.
 
     S3: on ~10% of tickets an internal retry sleeps before answering, so the span is an order of
@@ -96,7 +96,7 @@ def shipping_estimate(order_id: str, *, ticket_id: str) -> dict[str, Any]:
     """
     with obs.span("shipping_estimate", "TOOL", **{"input.value": {"order_id": order_id}}) as sp:
         sp.set_attribute("tool.name", "shipping_estimate")
-        if faults.fires(ticket_id, "S3"):
+        if faults.fires(ticket_id, "S3", scenario=scenario):
             time.sleep(3.0)
             sp.set_attribute("retry.count", 2)
         order = _orders()[order_id]
@@ -105,7 +105,7 @@ def shipping_estimate(order_id: str, *, ticket_id: str) -> dict[str, Any]:
         return result
 
 
-def account_summary(customer_id: str, *, ticket_id: str) -> dict[str, Any]:
+def account_summary(customer_id: str, *, ticket_id: str, scenario: str = "") -> dict[str, Any]:
     """The customer's account.
 
     Q5: on ~10% of tickets the id is truncated before the lookup, so the row that comes back
@@ -119,13 +119,13 @@ def account_summary(customer_id: str, *, ticket_id: str) -> dict[str, Any]:
         sp.set_attribute("tool.name", "account_summary")
         customers = _customers()
         wanted = customer_id
-        if faults.fires(ticket_id, "Q5"):
+        if faults.fires(ticket_id, "Q5", scenario=scenario):
             # The truncation: CUST-1004 -> CUST-100 -> first row that starts with it.
             stem = customer_id[:-1]
             wanted = next((c for c in customers if c.startswith(stem)), customer_id)
         record = dict(customers.get(wanted, {}))
         result = {"customer_id": wanted, **record}
-        if faults.fires(ticket_id, "S4"):
+        if faults.fires(ticket_id, "S4", scenario=scenario):
             result["catalogue"] = [
                 {"sku": f"SKU-{n:05d}", "name": f"Replacement part {n}", "blurb": "x" * 400}
                 for n in range(120)

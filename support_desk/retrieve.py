@@ -15,6 +15,7 @@ _TOPIC = {
     "return": "KB-RETURNS",
     "ship": "KB-SHIPPING",
     "deliver": "KB-SHIPPING",
+    "arrive": "KB-SHIPPING",
     "invoice": "KB-BILLING",
     "billing": "KB-BILLING",
     "payment": "KB-BILLING",
@@ -31,7 +32,7 @@ def _articles() -> list[dict[str, Any]]:
     ]
 
 
-def search(question: str, *, ticket_id: str) -> list[dict[str, Any]]:
+def search(question: str, *, ticket_id: str, scenario: str = "") -> list[dict[str, Any]]:
     """Articles for this question.
 
     S6: on ~10% of tickets the search returns nothing at all. The answer step is not told, and
@@ -42,7 +43,7 @@ def search(question: str, *, ticket_id: str) -> list[dict[str, Any]]:
         lowered = question.lower()
         wanted = {article_id for word, article_id in _TOPIC.items() if word in lowered}
         found = [a for a in _articles() if a["id"] in wanted]
-        if faults.fires(ticket_id, "S6"):
+        if faults.fires(ticket_id, "S6", scenario=scenario):
             found = []
         obs.set_documents(sp, found)
         obs.set_output(sp, {"count": len(found), "ids": [a["id"] for a in found]})

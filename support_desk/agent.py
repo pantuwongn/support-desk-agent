@@ -18,7 +18,7 @@ class ConvergenceFailure(RuntimeError):
     """The planner could not settle on a course of action."""
 
 
-def _plan(question: str, *, ticket_id: str) -> list[str]:
+def _plan(question: str, *, ticket_id: str, scenario: str = "") -> list[str]:
     """Decide which tools to run. A CHAIN — it chooses, it does not compute.
 
     E3: on ~10% of tickets an ambiguous ask sends the planner round the same three steps until
@@ -36,7 +36,7 @@ def _plan(question: str, *, ticket_id: str) -> list[str]:
         if _CUSTOMER.search(question) or "account" in lowered or "seat" in lowered:
             steps.append("account_summary")
 
-        if faults.fires(ticket_id, "E3"):
+        if faults.fires(ticket_id, "E3", scenario=scenario):
             sp.set_attribute("planner.iterations", 8)
             sp.set_attribute("planner.repeated_steps", obs.as_text(steps * 3))
             raise ConvergenceFailure(
@@ -47,7 +47,9 @@ def _plan(question: str, *, ticket_id: str) -> list[str]:
         return steps
 
 
-def _run_tool(name: str, arguments: dict[str, Any], *, ticket_id: str) -> dict[str, Any]:
+def _run_tool(
+    name: str, arguments: dict[str, Any], *, ticket_id: str, scenario: str = ""
+) -> dict[str, Any]:
     """Invoke one tool by name, with the arguments the planner chose."""
     fn = {
         "order_lookup": tools.order_lookup,
@@ -55,10 +57,12 @@ def _run_tool(name: str, arguments: dict[str, Any], *, ticket_id: str) -> dict[s
         "shipping_estimate": tools.shipping_estimate,
         "account_summary": tools.account_summary,
     }[name]
-    return fn(**arguments, ticket_id=ticket_id)
+    return fn(**arguments, ticket_id=ticket_id, scenario=scenario)
 
 
-def ask(question: str, *, ticket_id: str, customer_id: str = "CUST-1001") -> dict[str, Any]:
+def ask(
+    question: str, *, ticket_id: str, scenario: str = "", customer_id: str = "CUST-1001"
+) -> dict[str, Any]:
     """Answer one ticket."""
     with obs.span(
         "support_desk.ask",
@@ -67,8 +71,9 @@ def ask(question: str, *, ticket_id: str, customer_id: str = "CUST-1001") -> dic
     ) as root:
         root.set_attribute("ticket.id", ticket_id)
         root.set_attribute("user.id", customer_id)
+        root.set_attribute("mega.scenario", scenario)
 
-        steps = _plan(question, ticket_id=ticket_id)
+        steps = _plan(question, ticket_id=ticket_id, scenario=scenario)
         order_match = _ORDER.search(question)
         order_id = order_match.group(0) if order_match else "ORD-77001"
 
@@ -76,20 +81,20 @@ def ask(question: str, *, ticket_id: str, customer_id: str = "CUST-1001") -> dic
         for step in steps:
             if step == "account_summary":
                 arguments: dict[str, Any] = {"customer_id": customer_id}
-            elif faults.fires(ticket_id, "E5"):
+            elif faults.fires(ticket_id, "E5", scenario=scenario):
                 # E5: the required order_id never makes it into the call.
                 arguments = {}
             else:
                 arguments = {"order_id": order_id}
             try:
                 facts.append(
-                    f"{step}: {obs.as_text(_run_tool(step, arguments, ticket_id=ticket_id))}"
+                    f"{step}: {obs.as_text(_run_tool(step, arguments, ticket_id=ticket_id, scenario=scenario))}"
                 )
             except TypeError as exc:  # a call that violates the declared schema
                 raise ValueError(f"{step} called without its required argument: {exc}") from exc
 
         # E4: a tool nobody declared. The span names it, so the call is visible as invented.
-        if faults.fires(ticket_id, "E4"):
+        if faults.fires(ticket_id, "E4", scenario=scenario):
             with obs.span(
                 "escalate_ticket", "TOOL", **{"input.value": {"ticket_id": ticket_id}}
             ) as sp:
@@ -97,13 +102,13 @@ def ask(question: str, *, ticket_id: str, customer_id: str = "CUST-1001") -> dic
                 obs.set_output(sp, {"escalated": True, "queue": "tier-2"})
             facts.append("escalate_ticket: {'escalated': True}")
 
-        documents = retrieve.search(question, ticket_id=ticket_id)
+        documents = retrieve.search(question, ticket_id=ticket_id, scenario=scenario)
         extracts = [f"{d['title']} §{d['section']}: {d['content']}" for d in documents]
 
-        text = llm.answer(question, extracts + facts, ticket_id=ticket_id)
+        text = llm.answer(question, extracts + facts, ticket_id=ticket_id, scenario=scenario)
 
         # S5: the failure is written into the body while the status stays OK.
-        if faults.fires(ticket_id, "S5"):
+        if faults.fires(ticket_id, "S5", scenario=scenario):
             text = "Error: could not reach the billing service. Please try again later."
 
         result: dict[str, Any] = {
@@ -112,7 +117,7 @@ def ask(question: str, *, ticket_id: str, customer_id: str = "CUST-1001") -> dic
             "citations": [d["id"] for d in documents],
         }
         # E6: the key the downstream requires is dropped.
-        if faults.fires(ticket_id, "E6"):
+        if faults.fires(ticket_id, "E6", scenario=scenario):
             result.pop("ticket_id")
 
         obs.set_output(root, result)

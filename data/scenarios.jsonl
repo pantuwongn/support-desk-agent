@@ -12,3 +12,6 @@
 {"id": "ambiguous", "question": "Something is wrong with my order, please sort it out.", "customer_id": "CUST-1001", "expects": "asks what is wrong, or states what it checked"}
 {"id": "unknown-topic", "question": "Do you offer gift wrapping?", "customer_id": "CUST-1005", "expects": "says the knowledge base does not cover it"}
 {"id": "order-status", "question": "What is the status of ORD-77004?", "customer_id": "CUST-1004", "expects": "delivered"}
+{"id": "escalation-policy", "question": "When does a ticket get escalated to tier 2?", "customer_id": "CUST-1002", "expects": "says the knowledge base does not cover escalation"}
+{"id": "seat-removal", "question": "If I remove a seat, when does it take effect?", "customer_id": "CUST-1003", "expects": "next billing cycle; cites KB-ACCOUNT"}
+{"id": "invoice-copy", "question": "Can I get a copy of last month's invoice?", "customer_id": "CUST-1005", "expects": "invoices issued on the first; cites KB-BILLING"}

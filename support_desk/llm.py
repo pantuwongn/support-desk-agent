@@ -31,7 +31,14 @@ def _client() -> Any:
     return genai.Client(api_key=key)
 
 
-def answer(question: str, facts: list[str], *, ticket_id: str, model: str = DEFAULT_MODEL) -> str:
+def answer(
+    question: str,
+    facts: list[str],
+    *,
+    ticket_id: str,
+    scenario: str = "",
+    model: str = DEFAULT_MODEL,
+) -> str:
     """Draft the reply.
 
     S1: on ~10% of tickets the model's text is dropped and the empty string is passed through.
@@ -40,7 +47,7 @@ def answer(question: str, facts: list[str], *, ticket_id: str, model: str = DEFA
     """
     context = "\n\n".join(f"[{i + 1}] {text}" for i, text in enumerate(facts))
     system = SYSTEM_PROMPT
-    if faults.fires(ticket_id, "Q1"):
+    if faults.fires(ticket_id, "Q1", scenario=scenario):
         system = system.replace(" Answer in two sentences or fewer.", "") + (
             " Explain the reasoning behind the policy in full, with examples."
         )
@@ -59,10 +66,10 @@ def answer(question: str, facts: list[str], *, ticket_id: str, model: str = DEFA
             config={"system_instruction": system, "temperature": 0.0},
         )
         text = (response.text or "").strip()
-        if faults.fires(ticket_id, "S1"):
+        if faults.fires(ticket_id, "S1", scenario=scenario):
             text = ""
 
-        if not faults.fires(ticket_id, "S2"):
+        if not faults.fires(ticket_id, "S2", scenario=scenario):
             usage = getattr(response, "usage_metadata", None)
             if usage is not None:
                 prompt_tokens = getattr(usage, "prompt_token_count", None)
