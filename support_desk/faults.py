@@ -33,14 +33,14 @@ OWNER: dict[str, str] = {
     "refund-window": "E1",  # tool execution failure
     "refund-legacy": "E2",  # internal step failure
     "ambiguous": "E3",  # agent convergence failure
-    "account-seat": "E4",  # hallucinated tool call
+    "account-seat": "S4",  # oversized tool output — account_summary is where it lives
     "order-status": "E5",  # invalid tool arguments
     "returns-postage": "E6",  # output schema violation
     "billing-invoice": "S1",  # empty final response
     "billing-retry": "S2",  # missing token accounting
     "shipping-eta": "S3",  # high latency
     "account-details": "Q5",  # PII disclosure — needs the account tool
-    "shipping-express": "S4",  # oversized tool output
+    "shipping-express": "E4",  # hallucinated tool call — needs no particular tool
     "two-part": "S5",  # error hidden in the response body
     "unknown-topic": "S6",  # confident answer with no evidence
     "refund-premium": "Q1",  # instruction not followed

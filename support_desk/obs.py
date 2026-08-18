@@ -118,3 +118,17 @@ def declare_tools(sp: Any, tools: list[dict[str, Any]]) -> None:
     """Stamp the tools the model was offered, so a call to anything else is visibly invented."""
     for i, tool in enumerate(tools):
         sp.set_attribute(f"llm.tools.{i}.tool.json_schema", as_text(tool))
+
+
+def record_tool_calls(sp: Any, calls: list[tuple[str, dict[str, Any]]]) -> None:
+    """Record the calls the model asked for, on the LLM span that asked for them.
+
+    A reader answers "did it call something that was never offered" by comparing these against
+    `llm.tools.*`, so both have to sit on the same span in the layout it expects. Opening a
+    child span named after the tool is not the same claim: that says the call happened, not
+    that the model chose it, and nothing can tell an invented name from a real one.
+    """
+    for i, (name, arguments) in enumerate(calls):
+        base = f"llm.output_messages.0.message.tool_calls.{i}.tool_call.function"
+        sp.set_attribute(f"{base}.name", name)
+        sp.set_attribute(f"{base}.arguments", as_text(arguments))
