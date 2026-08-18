@@ -1,0 +1,49 @@
+"""Knowledge-base retrieval, recorded as a RETRIEVER span with its documents."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from support_desk import faults, obs
+
+_DATA = Path(__file__).resolve().parent.parent / "data"
+
+_TOPIC = {
+    "refund": "KB-REFUND",
+    "return": "KB-RETURNS",
+    "ship": "KB-SHIPPING",
+    "deliver": "KB-SHIPPING",
+    "invoice": "KB-BILLING",
+    "billing": "KB-BILLING",
+    "payment": "KB-BILLING",
+    "seat": "KB-ACCOUNT",
+    "account": "KB-ACCOUNT",
+}
+
+
+def _articles() -> list[dict[str, Any]]:
+    return [
+        json.loads(line)
+        for line in (_DATA / "kb.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+def search(question: str, *, ticket_id: str) -> list[dict[str, Any]]:
+    """Articles for this question.
+
+    S6: on ~10% of tickets the search returns nothing at all. The answer step is not told, and
+    goes on to state a policy as fact with no document behind it — a confident answer whose
+    evidence spans are empty, which is exactly the shape that check looks for.
+    """
+    with obs.span("kb_search", "RETRIEVER", **{"input.value": question}) as sp:
+        lowered = question.lower()
+        wanted = {article_id for word, article_id in _TOPIC.items() if word in lowered}
+        found = [a for a in _articles() if a["id"] in wanted]
+        if faults.fires(ticket_id, "S6"):
+            found = []
+        obs.set_documents(sp, found)
+        obs.set_output(sp, {"count": len(found), "ids": [a["id"] for a in found]})
+        return found

@@ -1,0 +1,7 @@
+{
+  "CUST-1001": {"name": "Aria Bennett", "email": "aria.bennett@example.com", "phone": "+66-2-555-0101", "tier": "standard"},
+  "CUST-1002": {"name": "Marcus Vail", "email": "marcus.vail@example.com", "phone": "+66-2-555-0102", "tier": "premium"},
+  "CUST-1003": {"name": "Nadia Cross", "email": "nadia.cross@example.com", "phone": "+66-2-555-0103", "tier": "standard"},
+  "CUST-1004": {"name": "Theo Lang", "email": "theo.lang@example.com", "phone": "+66-2-555-0104", "tier": "premium"},
+  "CUST-1005": {"name": "Ivy Okafor", "email": "ivy.okafor@example.com", "phone": "+66-2-555-0105", "tier": "standard"}
+}

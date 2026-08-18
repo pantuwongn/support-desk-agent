@@ -1,0 +1,9 @@
+{
+  "ORD-77001": {"customer": "CUST-1001", "total": 1290.0, "currency": "THB", "placed": "2026-08-01", "status": "delivered", "shard": 0},
+  "ORD-77002": {"customer": "CUST-1002", "total": 4500.0, "currency": "THB", "placed": "2026-08-03", "status": "shipped", "shard": 1},
+  "ORD-77003": {"customer": "CUST-1003", "total": 890.0, "currency": "THB", "placed": "2026-08-05", "status": "delivered", "shard": 2},
+  "ORD-77004": {"customer": "CUST-1004", "total": 12750.0, "currency": "THB", "placed": "2026-07-28", "status": "delivered", "shard": 3},
+  "ORD-77005": {"customer": "CUST-1005", "total": 320.0, "currency": "THB", "placed": "2026-08-09", "status": "processing", "shard": 4},
+  "ORD-69001": {"customer": "CUST-1001", "total": 2100.0, "currency": null, "placed": "2025-11-02", "status": "delivered", "shard": 0, "legacy": true},
+  "ORD-69002": {"customer": "CUST-1003", "total": 640.0, "currency": null, "placed": "2025-12-14", "status": "delivered", "shard": 2, "legacy": true}
+}

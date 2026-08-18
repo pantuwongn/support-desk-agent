@@ -1,0 +1,134 @@
+"""The desk's tools. Each is one TOOL span carrying what went in and what came out.
+
+Several carry a planted defect. Every one of them is conditional on the ticket id — see
+`faults.py` for why that matters.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+from typing import Any
+
+from support_desk import faults, obs
+
+_DATA = Path(__file__).resolve().parent.parent / "data"
+
+#: The tools the model is told about. `escalate_ticket` is deliberately absent — E4 calls it
+#: anyway, which is what a hallucinated tool call looks like from the outside.
+DECLARED: list[dict[str, Any]] = [
+    {"name": "order_lookup", "parameters": {"order_id": "string"}, "required": ["order_id"]},
+    {"name": "refund_quote", "parameters": {"order_id": "string"}, "required": ["order_id"]},
+    {"name": "shipping_estimate", "parameters": {"order_id": "string"}, "required": ["order_id"]},
+    {
+        "name": "account_summary",
+        "parameters": {"customer_id": "string"},
+        "required": ["customer_id"],
+    },
+]
+
+
+class OrderShardUnavailable(RuntimeError):
+    """The shard holding this order did not answer."""
+
+
+class LegacyRecord(ValueError):
+    """A pre-2026 order carries no currency, so money maths cannot run on it."""
+
+
+def _orders() -> dict[str, Any]:
+    return json.loads((_DATA / "orders.json").read_text(encoding="utf-8"))
+
+
+def _customers() -> dict[str, Any]:
+    return json.loads((_DATA / "customers.json").read_text(encoding="utf-8"))
+
+
+def order_lookup(order_id: str, *, ticket_id: str) -> dict[str, Any]:
+    """The order record.
+
+    E1: on ~10% of tickets the shard read fails outright. A real one is a timeout to a replica;
+    the effect on the trace is the same — a TOOL span that ends ERROR.
+    """
+    with obs.span("order_lookup", "TOOL", **{"input.value": {"order_id": order_id}}) as sp:
+        sp.set_attribute("tool.name", "order_lookup")
+        order = _orders().get(order_id)
+        if order is None:
+            raise KeyError(order_id)
+        if faults.fires(ticket_id, "E1"):
+            raise OrderShardUnavailable(
+                f"shard {order['shard']} did not respond within 2000ms for {order_id}"
+            )
+        obs.set_output(sp, order)
+        return order
+
+
+def refund_quote(order_id: str, *, ticket_id: str) -> dict[str, Any]:
+    """What this order would refund.
+
+    E2: a legacy record has no currency. The multiply below raises on it, and on ~10% of tickets
+    the guard that would have caught it is skipped.
+    """
+    with obs.span("refund_quote", "TOOL", **{"input.value": {"order_id": order_id}}) as sp:
+        sp.set_attribute("tool.name", "refund_quote")
+        order = _orders()[order_id]
+        currency = order.get("currency")
+        if currency is None and not faults.fires(ticket_id, "E2"):
+            result = {"order_id": order_id, "refundable": False, "reason": "legacy record"}
+            obs.set_output(sp, result)
+            return result
+        result = {
+            "order_id": order_id,
+            "refundable": True,
+            "amount": round(order["total"] * 1.0, 2),
+            "currency": currency.upper(),  # E2 raises here when currency is None
+        }
+        obs.set_output(sp, result)
+        return result
+
+
+def shipping_estimate(order_id: str, *, ticket_id: str) -> dict[str, Any]:
+    """When this order should arrive.
+
+    S3: on ~10% of tickets an internal retry sleeps before answering, so the span is an order of
+    magnitude slower than its neighbours while still succeeding.
+    """
+    with obs.span("shipping_estimate", "TOOL", **{"input.value": {"order_id": order_id}}) as sp:
+        sp.set_attribute("tool.name", "shipping_estimate")
+        if faults.fires(ticket_id, "S3"):
+            time.sleep(3.0)
+            sp.set_attribute("retry.count", 2)
+        order = _orders()[order_id]
+        result = {"order_id": order_id, "status": order["status"], "eta_days": 3}
+        obs.set_output(sp, result)
+        return result
+
+
+def account_summary(customer_id: str, *, ticket_id: str) -> dict[str, Any]:
+    """The customer's account.
+
+    Q5: on ~10% of tickets the id is truncated before the lookup, so the row that comes back
+    belongs to a DIFFERENT customer — and their email and phone reach the reply. Every value in
+    this dataset is synthetic; the failure it stands for, a wrong join disclosing personal data,
+    is not.
+
+    S4: on ~10% the summary drags the whole catalogue in with it, flooding the context.
+    """
+    with obs.span("account_summary", "TOOL", **{"input.value": {"customer_id": customer_id}}) as sp:
+        sp.set_attribute("tool.name", "account_summary")
+        customers = _customers()
+        wanted = customer_id
+        if faults.fires(ticket_id, "Q5"):
+            # The truncation: CUST-1004 -> CUST-100 -> first row that starts with it.
+            stem = customer_id[:-1]
+            wanted = next((c for c in customers if c.startswith(stem)), customer_id)
+        record = dict(customers.get(wanted, {}))
+        result = {"customer_id": wanted, **record}
+        if faults.fires(ticket_id, "S4"):
+            result["catalogue"] = [
+                {"sku": f"SKU-{n:05d}", "name": f"Replacement part {n}", "blurb": "x" * 400}
+                for n in range(120)
+            ]
+        obs.set_output(sp, result)
+        return result

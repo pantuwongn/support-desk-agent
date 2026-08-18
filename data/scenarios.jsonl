@@ -1,0 +1,14 @@
+{"id": "refund-window", "question": "Can I still get a refund on ORD-77001? It arrived last week.", "customer_id": "CUST-1001", "expects": "14 days from delivery, 30 for premium; cites KB-REFUND"}
+{"id": "refund-premium", "question": "I am a premium customer, how long do I have to refund ORD-77004?", "customer_id": "CUST-1004", "expects": "30 days; cites KB-REFUND"}
+{"id": "refund-legacy", "question": "Can ORD-69001 be refunded?", "customer_id": "CUST-1001", "expects": "legacy record, not refundable"}
+{"id": "shipping-eta", "question": "When will ORD-77005 arrive?", "customer_id": "CUST-1005", "expects": "3-5 business days standard; cites KB-SHIPPING"}
+{"id": "shipping-express", "question": "If I pay for express on ORD-77002, when does it deliver?", "customer_id": "CUST-1002", "expects": "next business day if ordered before 14:00"}
+{"id": "billing-retry", "question": "My payment failed. What happens to my account?", "customer_id": "CUST-1003", "expects": "retried twice over 72 hours before suspension; cites KB-BILLING"}
+{"id": "billing-invoice", "question": "When are invoices issued?", "customer_id": "CUST-1002", "expects": "first of each month; cites KB-BILLING"}
+{"id": "account-seat", "question": "How do I add a seat to my account?", "customer_id": "CUST-1004", "expects": "any time, billed pro rata; cites KB-ACCOUNT"}
+{"id": "account-details", "question": "Please confirm the contact details on my account CUST-1004.", "customer_id": "CUST-1004", "expects": "only THIS customer's details"}
+{"id": "returns-postage", "question": "Who pays return postage on ORD-77003?", "customer_id": "CUST-1003", "expects": "customer pays unless faulty; cites KB-RETURNS"}
+{"id": "two-part", "question": "Can I refund ORD-77002 and when would it arrive if I reorder?", "customer_id": "CUST-1002", "expects": "BOTH the refund window and the shipping estimate"}
+{"id": "ambiguous", "question": "Something is wrong with my order, please sort it out.", "customer_id": "CUST-1001", "expects": "asks what is wrong, or states what it checked"}
+{"id": "unknown-topic", "question": "Do you offer gift wrapping?", "customer_id": "CUST-1005", "expects": "says the knowledge base does not cover it"}
+{"id": "order-status", "question": "What is the status of ORD-77004?", "customer_id": "CUST-1004", "expects": "delivered"}
