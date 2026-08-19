@@ -109,8 +109,19 @@ def ask(
                 continue  # the invented one — the planner asked, nothing runs
             try:
                 ran = _run_tool(name, arguments, ticket_id=ticket_id, scenario=scenario)
-            except TypeError as exc:  # the call that violates the declared schema
-                raise ValueError(f"{name} called without its required argument: {exc}") from exc
+            except TypeError as exc:
+                # The rejected call gets a span of its own. Without one the only errored span
+                # is the root AGENT, whose signature is `tool_loop:support_desk.ask` — which
+                # every uncaught exception in this app already produces, so E5's failures
+                # would land in E3's issue and the analyst would see two mechanisms as one.
+                with obs.span(
+                    "tool_dispatch",
+                    "CHAIN",
+                    **{"input.value": {"tool": name, "arguments": arguments}},
+                ):
+                    raise ValueError(
+                        f"{name} called without its required argument: {exc}"
+                    ) from exc
             facts.append(f"{name}: {obs.as_text(ran)}")
 
         documents = retrieve.search(question, ticket_id=ticket_id, scenario=scenario)
@@ -137,5 +148,9 @@ def ask(
         if faults.fires(ticket_id, "E6", scenario=scenario):
             result.pop("ticket_id")
 
-        obs.set_output(root, result)
+        # S1: when the reply is empty the root records nothing either. The detector reads the
+        # LAST generative span, and kinds LLM and AGENT both count — this root is an AGENT and
+        # ends after `draft_reply`, so an envelope populated around an empty reply hides the
+        # blank answer behind a non-empty root and the trace reads as answered.
+        obs.set_output(root, result if text else "")
         return result

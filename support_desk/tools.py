@@ -97,7 +97,10 @@ def shipping_estimate(order_id: str, *, ticket_id: str, scenario: str = "") -> d
     with obs.span("shipping_estimate", "TOOL", **{"input.value": {"order_id": order_id}}) as sp:
         sp.set_attribute("tool.name", "shipping_estimate")
         if faults.fires(ticket_id, "S3", scenario=scenario):
-            time.sleep(3.0)
+            # 12s, not 3s. The detector's line is max(p95 * 3, 10.0) — a floor of ten
+            # seconds no amount of fast neighbours lowers — and it only judges a span name
+            # it has 30+ samples of. Three seconds sits under the floor and is never late.
+            time.sleep(12.0)
             sp.set_attribute("retry.count", 2)
         order = _orders()[order_id]
         result = {"order_id": order_id, "status": order["status"], "eta_days": 3}
@@ -126,9 +129,11 @@ def account_summary(customer_id: str, *, ticket_id: str, scenario: str = "") -> 
         record = dict(customers.get(wanted, {}))
         result = {"customer_id": wanted, **record}
         if faults.fires(ticket_id, "S4", scenario=scenario):
+            # 450 rows ~= 210 KB. The threshold is 200_000 bytes of span output, and the
+            # earlier 120 rows came to 56 KB — a flood that never reached the waterline.
             result["catalogue"] = [
                 {"sku": f"SKU-{n:05d}", "name": f"Replacement part {n}", "blurb": "x" * 400}
-                for n in range(120)
+                for n in range(450)
             ]
         obs.set_output(sp, result)
         return result
