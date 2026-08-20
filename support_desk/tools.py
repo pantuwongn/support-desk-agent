@@ -67,14 +67,15 @@ def order_lookup(order_id: str, *, ticket_id: str, scenario: str = "") -> dict[s
 def refund_quote(order_id: str, *, ticket_id: str, scenario: str = "") -> dict[str, Any]:
     """What this order would refund.
 
-    E2: a legacy record has no currency. The multiply below raises on it, and on ~10% of tickets
-    the guard that would have caught it is skipped.
+    A legacy record has no currency, so money maths cannot run on it. The guard below is
+    unconditional: a missing currency always short-circuits to a non-refundable answer, and
+    `.upper()` is only ever reached on a currency that exists.
     """
     with obs.span("refund_quote", "TOOL", **{"input.value": {"order_id": order_id}}) as sp:
         sp.set_attribute("tool.name", "refund_quote")
         order = _orders()[order_id]
         currency = order.get("currency")
-        if currency is None and not faults.fires(ticket_id, "E2", scenario=scenario):
+        if currency is None:
             result = {"order_id": order_id, "refundable": False, "reason": "legacy record"}
             obs.set_output(sp, result)
             return result
@@ -82,7 +83,7 @@ def refund_quote(order_id: str, *, ticket_id: str, scenario: str = "") -> dict[s
             "order_id": order_id,
             "refundable": True,
             "amount": round(order["total"] * 1.0, 2),
-            "currency": currency.upper(),  # E2 raises here when currency is None
+            "currency": currency.upper(),
         }
         obs.set_output(sp, result)
         return result
