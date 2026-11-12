@@ -39,13 +39,6 @@ def _plan(
         if _CUSTOMER.search(question) or "account" in lowered or "seat" in lowered:
             steps.append("account_summary")
 
-        if faults.fires(ticket_id, "E3", scenario=scenario):
-            sp.set_attribute("planner.iterations", 8)
-            sp.set_attribute("planner.repeated_steps", obs.as_text(steps * 3))
-            raise ConvergenceFailure(
-                "planner revisited the same 3 steps 8 times without settling on an action"
-            )
-
         # What the planner decided, in the layout a reader checks against `llm.tools.*`.
         # E4 adds a name that was never declared; E5 drops a required argument. Both are only
         # visible here — a child span named after the tool cannot show either.
