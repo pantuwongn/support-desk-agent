@@ -75,3 +75,17 @@ def test_the_schema_defect_targets_a_key_the_contract_names() -> None:
     would notice and the defect would be untestable."""
     assert faults.OWNER["returns-postage"] == "E6"
     assert agent.REPLY_SCHEMA == ("ticket_id", "reply", "citations")
+
+
+def test_ambiguous_planner_converges_without_looping() -> None:
+    """Ambiguous tickets must settle on an action plan without raising ConvergenceFailure."""
+    assert faults.fires("T-314410", "E3", scenario="ambiguous")
+    steps, calls = agent._plan(
+        "Something is wrong with my order, please sort it out.",
+        ticket_id="T-314410",
+        scenario="ambiguous",
+        customer_id="CUST-1001",
+        order_id="ORD-77001",
+    )
+    assert steps == []
+    assert calls == []
